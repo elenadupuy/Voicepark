@@ -1,0 +1,703 @@
+---
+title: "Projet VoicePark"
+output: html_document)
+---
+I- IMPORTATION DES DONNEES 
+```{r}
+#Importation des données
+
+dataMSA<-read.csv(file="2018-11-27 a-MSA-stats.csv",header=FALSE,sep=";")
+dataPD<-read.csv(file="2018-11-27 a-PD-stats.csv",header=FALSE,sep=";")
+dataPSP<-read.csv(file="2018-11-27 a-PSP-stats.csv",header=FALSE,sep=";")
+dataHC<-read.csv(file="2018-11-28 a-HC-stats.csv",header=FALSE,sep=";")
+```
+
+II- NETTOYAGE DES DONNEES 
+```{r}
+#Renommer les colonnes
+
+colnames(dataMSA)<- c("Fichier","Sexe","Age","Pathologie","Handicap index", "Durées","Amplitude","F0 moyen (Hertz)","Intonation (Demi-ton)","Indicateurs","Attaque","Inst haut","Inst ampl","Bruit","Hamon","Deg.unv (en%)","Inst haut (1s)","Inst ampl (1s)","Bruit (1s)","F0 harm (1s)")
+colnames(dataPD)<- c("Fichier","Sexe","Age","Pathologie","Handicap index", "Durées","Amplitude","F0 moyen (Hertz)","Intonation (Demi-ton)","Indicateurs","Attaque","Inst haut","Inst ampl","Bruit","Hamon","Deg.unv (en%)","Inst haut (1s)","Inst ampl (1s)","Bruit (1s)","F0 harm (1s)")
+colnames(dataPSP)<- c("Fichier","Sexe","Age","Pathologie","Handicap index", "Durées","Amplitude","F0 moyen (Hertz)","Intonation (Demi-ton)","Indicateurs","Attaque","Inst haut","Inst ampl","Bruit","Hamon","Deg.unv (en%)","Inst haut (1s)","Inst ampl (1s)","Bruit (1s)","F0 harm (1s)")
+colnames(dataHC)<- c("Fichier","Sexe","Age","Pathologie","Handicap index", "Durées","Amplitude","F0 moyen (Hertz)","Intonation (Demi-ton)","Indicateurs","Attaque","Inst haut","Inst ampl","Bruit","Hamon","Deg.unv (en%)","Inst haut (1s)","Inst ampl (1s)","Bruit (1s)","F0 harm (1s)")
+
+dataMSA<-dataMSA[-1,]
+dataPD<-dataPD[-1,]
+dataPSP<-dataPSP[-1,]
+dataHC<-dataHC[-1,]
+```
+
+```{r}
+#Renommer les lignes
+rownames(dataMSA)<-c(1:26)
+rownames(dataPD)<-c(1:30)
+rownames(dataPSP)<-c(1:24)
+rownames(dataHC)<-c(1:74)
+```
+
+```{r}
+#Suppression des colonnes 21,22 qui sont vides
+dataMSA<-subset(dataMSA,select=-c(21,22))
+dataPSP<-subset(dataPSP,select=-c(21,22))
+dataHC<-subset(dataHC,select=-c(21,22))
+```
+
+```{r}
+#Concatenation des tableaux MSA,HC,PSP,PD
+DATA <-rbind(dataMSA,dataPSP,dataPD,dataHC)
+```
+
+
+```{r}
+#Variables qualitatives/quantitatives
+DATA$Age<-as.numeric(as.character(DATA$Age))
+
+for (i in seq(5,20,by=1))
+  {DATA[,i]<-as.numeric(as.character(DATA[,i]))}
+
+```
+```{r}
+#Nouveau tableau de données : Regression logistique par rapport au param Malade/Pas malade
+DATA2<-DATA
+DATA2$Pathologie=as.factor(c(rep(1,80),rep(0,74)))
+```
+
+```{r}
+#Inversion des colonnes pour les 3 a gauche qualitatives et le reste quantitatif 
+DATA3<-DATA2[,c(4,2,3,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20)]
+DATA3<-subset(DATA3,select=-c(4))
+```
+
+III- ANALYSE DECRIPTIVE 
+
+  III-1 Description elementaire
+  
+```{r}
+#Summary
+summary(DATA3)
+#Boxplots
+par(mfrow=c(2,2))
+boxplot(Durées~Pathologie,data=DATA3, xlab="Pathologie", ylab="Durées")
+boxplot(Amplitude~Pathologie,data=DATA3, xlab="Pathologie", ylab="Amplitude" )
+boxplot(`Intonation (Demi-ton)`~Pathologie,data=DATA3, xlab="Pathologie", ylab="Intonation (Demi-ton)" ) #valeurs abberrantes/extremes
+boxplot(Indicateurs~Pathologie,data=DATA3, xlab="Pathologie", ylab="Indicateurs")  #valeurs extremes 
+
+#Scatterplot
+options(repr.plot.width=10, repr.plot.height=10)
+pairs(DATA3[,c(3:8)],col=DATA3$Pathologie) #les variables importantes
+pairs(DATA3[,c(3:18)],col=DATA3$Pathologie) #toutes les variables
+
+```
+
+  III-2 ACP
+  
+```{r}
+library(FactoMineR)
+
+#######Essai ACP toutes les variables
+acp=PCA(DATA3[,3:18], graph = FALSE)
+#options(repr.plot.width=4, repr.plot.height=4)
+#Plot des variables
+plot(acp,choix="var")
+#Plot projection des individus
+plot(acp, choix="ind", habillage="ind",col.hab=DATA3$Pathologie)
+
+
+
+#######Essai ACP que variables importantes
+acp2=PCA(DATA3[,4:8], graph = FALSE)
+#Plot des variables
+plot(acp2,choix="var")
+#Plot projection des individus
+plot(acp2, choix="ind", habillage="ind",col.hab=DATA3$Pathologie)
+
+
+########Essai ACP en enlevant les valeurs aberrantes
+DATA4 <- DATA3[c(1:12,15:27,29:154),]
+
+acp3=PCA(DATA4[,3:18], graph = FALSE)
+#Plot des variables
+plot(acp3,choix="var")
+#Plot projection des individus
+plot(acp3, choix="ind", habillage="ind",col.hab=DATA4$Pathologie)
+```
+
+
+
+
+  III-3 AFD 
+  
+```{r}
+library(MASS)
+
+```
+
+  IV- TEST DE NORMALITE DES VARIABLES
+
+```{r}
+# tests de normalité des variables 
+shapiro.test(DATA3$Age)
+#shapiro.test(DATA3$`Handicap index`)
+shapiro.test(DATA3$Durées)
+shapiro.test(DATA3$Amplitude)
+shapiro.test(DATA3$`F0 moyen (Hertz)`)
+shapiro.test(DATA3$`Intonation (Demi-ton)`)
+shapiro.test(DATA3$Indicateurs)
+shapiro.test(DATA3$Attaque)
+shapiro.test(DATA3$`Inst haut`)
+shapiro.test(DATA3$`Inst ampl`)
+shapiro.test(DATA3$Bruit)
+shapiro.test(DATA3$Hamon)
+shapiro.test(DATA3$`Deg.unv (en%)`)
+shapiro.test(DATA3$`Inst haut (1s)`)
+shapiro.test(DATA3$`Inst ampl (1s)`)
+shapiro.test(DATA3$`Bruit (1s)`)
+shapiro.test(DATA3$`F0 harm (1s)`)
+
+library(nortest)
+lillie.test(DATA3$Age)
+#lillie.test(DATA3$`Handicap index`)
+lillie.test(DATA3$Durées)
+lillie.test(DATA3$Amplitude)
+lillie.test(DATA3$`F0 moyen (Hertz)`)
+lillie.test(DATA3$`Intonation (Demi-ton)`)
+lillie.test(DATA3$Indicateurs)
+lillie.test(DATA3$Attaque)
+lillie.test(DATA3$`Inst haut`)
+lillie.test(DATA3$`Inst ampl`)
+lillie.test(DATA3$Bruit)
+lillie.test(DATA3$Hamon)
+lillie.test(DATA3$`Deg.unv (en%)`)
+lillie.test(DATA3$`Inst haut (1s)`)
+lillie.test(DATA3$`Inst ampl (1s)`)
+lillie.test(DATA3$`Bruit (1s)`)
+lillie.test(DATA3$`F0 harm (1s)`)
+
+#Conclusion : Aucune de nos données n'est gaussienne 
+```
+
+V- REGRESSION LOGISTIQUE (Modèle complet et simplifié SANS CARET)
+```{r}
+#Préparation données pour la reg log
+DATA3$Pathologie<-as.integer(c(rep(1,80),rep(0,74)))
+is.numeric(DATA3$Pathologie)
+DATA3$Pathologie<-as.factor(DATA3$Pathologie)
+
+#Estimation du modèle complet
+mod.complet <- glm(Pathologie ~ .,family = binomial(link="logit") ,data=DATA3)
+summary(mod.complet)
+#significativité des paramètres
+anova(mod.complet,test="Chisq")
+```
+
+```{r}
+# Recherche d'un modèle optimal au sens d'Akaïke
+mod.complet.step=step(mod.complet,direction="backward")
+# Modèle obtenu
+anova(mod.complet.step,test="Chisq")
+anova(mod.complet,mod.complet.step,test="Chisq")
+#on rejette le modèle simplifié
+```
+
+
+
+```{r}
+#Régression avec le modèle minimum
+log.qm=glm(Pathologie~1,data=DATA3,family=binomial)
+# algorithme stepwise en précisant le plus grand 
+#Modèle possible
+log.qm.step1=step(log.qm,direction="both",
+  scope=list(lower=~1,upper=~(Sexe + Age + 
+  Durées + Amplitude + `F0 moyen (Hertz)`+`Intonation (Demi-ton)`+Indicateurs+Attaque+`Inst haut`+`Inst ampl`+Bruit+Hamon+`Deg.unv (en%)`+`Inst haut (1s)`+`Inst ampl (1s)`+`Bruit (1s)`+`F0 harm (1s)`)^2), family=binomial)
+anova(log.qm.step1,test="Chisq")
+anova(mod.complet,log.qm.step1,test="Chisq")
+#on rejette le modèle simplifié
+
+```
+
+
+
+VII- DIFFERENTES METHODES D'APPRENTISSAGE 
+
+  VII-1 Préparation des données
+
+```{r}
+library(doParallel)
+cl <- makeCluster(4)
+registerDoParallel(cl)
+```
+
+
+```{r}
+#utilisation du package caret 
+library(caret)
+# extraction des données
+# Variable cible
+Y=DATA3[,"Pathologie"]
+# Variables explicatives
+X=DATA3[,-1]
+X$Sexe=as.integer(X$Sexe)-1 #à faire une seule fois ! La variable sexe doit être à 0/1 pas à H/F.
+
+```
+
+
+```{r}
+# indices de l’échantillon d’apprentissage
+xx=12 # Changer cette valeur pour personnaliser l'échantillonnage
+set.seed(xx)
+
+inTrain = createDataPartition(X[,2],p = 0.8, list = FALSE)# on a 80% des valeurs de la colonne age, ce qui nous donne les indices des 80% constituant l'échantillon d'apprentissage
+
+# Extraction des échantillons
+trainDescr=X[inTrain,] #var explicatives - echantillon d'apprentissage 
+testDescr=X[-inTrain,] #var explicatives - echantillon test
+
+trainY=Y[inTrain] #reponse - echantillon apprentissage
+testY=Y[-inTrain] #reponse - echantillon test
+
+```
+
+```{r}
+# Normalisation calculée sur les paramètres de l'échantillon d'apprentissage
+xTrans=preProcess(trainDescr)
+trainDescr=predict(object=xTrans,newdata=trainDescr)
+
+# Puis appliquée également à l'échantillon test
+testDescr=predict(xTrans,testDescr) #centré réduit par rapport aux echantillons d'apprentissage pour pouvoir comparer. 
+
+# Choix de la validation croisée (pour l'optimisation des paramètres de complexité de chaque methode)
+cvControl=trainControl(method="cv",number=10)
+```
+
+
+  VII-2 Estimation des modèles 
+  
+    VII-2-a Regression logistique (AVEC CARET)
+            Normale
+```{r}
+#install.packages('e1071', dependencies=TRUE)
+# Attention, la régression logistique sans interaction (linéaire) est estimée ci-dessous
+set.seed(2)
+
+rlogFit = train(trainDescr, trainY,method = "glm", tuneLength = 10,
+                trControl = cvControl, trace=FALSE)
+rlogFit
+
+```
+             Step AIC
+```{r}
+# Attention, la régression logistique sans interaction (linéaire) est estimée ci-dessous
+set.seed(2)
+rlogFitAIC = train(trainDescr, trainY,method = "glmStepAIC", tuneLength = 10,
+                trControl = cvControl, trace=FALSE)
+
+rlogFitAIC
+
+```
+
+
+    VII-2-b Arbre de décision (AVEC CARET)
+```{r}
+set.seed(2)
+
+rpartFit = train(trainDescr, trainY, method = "rpart", tuneLength = 8,
+    trControl = cvControl)
+rpartFit
+plot(rpartFit)
+```
+
+    VII-2-c Réseau de neurones (AVEC CARET)
+    
+```{r}
+set.seed(2)
+
+nnetFit = train(trainDescr, trainY, method = "nnet", tuneLength = 8,
+                trControl = cvControl, trace=FALSE)
+nnetFit
+plot(nnetFit)
+```
+    
+    VII-2-d Random forest (AVEC CARET)
+    
+```{r}
+set.seed(2)
+rfFit = train(trainDescr, trainY,method = "rf", tuneLength = 8,
+              trControl = cvControl, trace=FALSE)
+rfFit
+plot(rfFit)
+```
+
+    VII-2-e SVM Linéaire (AVEC CARET)
+```{r}
+set.seed(2)
+
+svmFit = train(trainDescr, trainY,method = "svmLinear2", tuneLength = 8,
+               trControl = cvControl)
+svmFit
+plot(svmFit)
+```
+    VII-2-f SVM Radiale (AVEC CARET)
+```{r}
+set.seed(2)
+
+svmrFit = train(trainDescr, trainY,method = "svmRadialCost", tuneLength = 8,trControl = cvControl)
+trellis.par.set(caretTheme())
+svmrFit
+plot(svmrFit)
+```
+
+
+  VII-3 Prevision et erreur de test (AVEC CARET)
+  
+```{r}
+models=list(logit=rlogFit,cart=rpartFit,nnet=nnetFit,rf=rfFit,logitAIC=rlogFitAIC,svm=svmFit,svmr=svmrFit)
+testPred=predict(models, newdata = testDescr)
+# taux de bien classés
+lapply(testPred,function(x)mean(x==testY))
+
+
+#matrice de confusion random forest
+print("random forest")
+cm_rf <- confusionMatrix(testPred$rf, testY)
+cm_rf$table
+
+#matrice de confusion arbre de décision
+print("arbre de d?cision")
+cm_cart <- confusionMatrix(testPred$cart, testY)
+cm_cart$table
+
+#matrice de confusion regression logistique
+print("regression logistique")
+cm_logit <- confusionMatrix(testPred$logit, testY)
+cm_logit$table
+
+#matrice de confusion réseau de neurones
+print("r?seau de neurones")
+cm_nnet <- confusionMatrix(testPred$nnet, testY)
+cm_nnet$table
+
+
+#matrice de confusion regression stepAIC
+print("stepAIC")
+cm_AIC <- confusionMatrix(testPred$logitAIC, testY)
+cm_AIC$table
+
+
+#matrice de confusion svmLinear
+print("svm lineaire")
+cm_svml <- confusionMatrix(table(testPred$svm, testY))
+cm_svml$table
+
+#matrice de confusion svmRadial
+print("svm radial")
+cm_svmr <- confusionMatrix(testPred$svmr, testY)
+cm_svmr$table
+
+
+```
+
+```{r}
+print("r?seau de neurones")
+print(cm_nnet)
+
+print("random forest")
+print(cm_rf)
+
+print("arbre de d?cision")
+print(cm_cart)
+
+print("regression logistique")
+print(cm_logit)
+
+print("regression logistique stepAIC")
+print(cm_AIC)
+
+print("svm lineaire")
+print(cm_svml)
+
+print("svm radial")
+print(cm_svmr)
+```
+
+```{r}
+#Courbes ROC avec CARET
+library(ROCR)
+testY
+models=list(logit=rlogFit,cart=rpartFit,nnet=nnetFit,rf=rfFit)
+testProb=predict(models, newdata = testDescr,type="prob")
+predroc=lapply(testProb,function(x)prediction(x[,1],testY==0))
+perfroc=lapply(predroc,function(x)performance(x, "tpr", "fpr"))
+plot(perfroc$logit,col=1)
+plot(perfroc$cart,col=2,add=TRUE)
+plot(perfroc$nnet,col=3,add=TRUE)
+plot(perfroc$rf,col=4,add=TRUE)
+legend("bottomright",legend=c("logit","CART","nnet","RF"),col=c(1:4),pch="_")
+```
+
+
+```{r}
+#fonction utilisée pour la validation croisée de Monte-Carlo
+pred.autom=function(X,Y,p=1/2,methodes=c("knn","rf"),size=c(10,2),xinit=11,N=10,typerr="cv",number=4,type="raw") {
+# Fonction de prévision de N échantillons tests
+# par une liste de méthodes de régression
+# ou classification (uniquement 2 classes)
+# Optimisation des paramètres par validation
+# croisée (défaut) ou bootstrap ou... (cf. caret)
+# X : matrice ou frame des variables explicatives
+# Y : variable cible quantitative ou qualitative
+# p : proportion entre apprentissage et test
+# methodes : liste des méthodes de rdiscrimination
+# size : e grille des paramètres à optimiser
+# xinit : générateur de nombres aléatoires
+# N : nombre de réplications apprentissage/test
+# typerr : "cv" ou "boo" ou "oob"
+# number : nombre de répétitions CV ou bootstrap
+# pred : liste des matrices de prévision
+# type d’erreur
+Control=trainControl(method=typerr,number=number)
+#svmLinearWeights
+# initialisation du générateur
+set.seed(xinit)
+# liste de matrices stockant les prévisions
+# une par méthode
+inTrain=createDataPartition(Y,p=p,list=FALSE)
+ntest=length(Y[-inTrain])
+pred=vector("list",length(methodes))
+names(pred)=methodes
+pred=lapply(pred,function(x)x=matrix(0,
+nrow=ntest,ncol=N))
+obs=matrix(0,ntest,N)
+set.seed(xinit)
+svmm=c()
+svmm1=matrix(nrow = N, ncol = length(methodes))
+for(i in 1:N) {
+# N itérations
+# indices de l’échantillon d’apprentissage
+inTrain=createDataPartition(Y,p=p,list=FALSE)
+# Extraction des échantillons
+trainDescr=X[inTrain,]
+testDescr=X[-inTrain,]
+trainY=Y[inTrain]
+testY=Y[-inTrain]
+# stockage des observés de testY
+obs[,i]=testY
+# centrage et réduction des variables
+xTrans=preProcess(trainDescr)
+trainDescr=predict(xTrans,trainDescr)
+testDescr=predict(xTrans,testDescr)
+# estimation et optimisation des modèles
+# pour chaque méthode de la liste
+for(j in 1:length(methodes)) {
+# modélisation
+modFit = train(trainDescr, trainY,method = methodes[j], tuneLength = size[j],
+               trControl = Control,preProcess = c("center","scale"))
+# prévisions
+if ((type=="prob")&(methodes[j]!="svmLinear2")&(methodes[j]!="svmRadialCost")) pred[[j]][,i]=predict(modFit,
+newdata = testDescr,type=type)[,1]
+else pred[[j]][,i]=predict(modFit,
+newdata = testDescr,decision.values = TRUE,probability=TRUE)
+svmm1[i,j]=confusionMatrix(table(predict(modFit,
+newdata = testDescr,decision.values = TRUE,probability=TRUE), testY))$overall[1]
+#print(svmm1)
+#svmm=c(svmm,svmm1[i,j])
+#print(svmm)
+}
+}
+list(pred=pred,obs=obs,svmm=svmm1)
+# résultats
+}
+```
+
+
+```{r}
+
+models=c("glmStepAIC","rpart","glm","svmLinear2","nnet","rf","svmRadialCost")
+noptim=c(6,6,6,6,6,6,6)
+# Initialiser le générateur et fixer le nombre d’itérations
+# Changer ces valeurs. Attention au temps de calcul! Être patient!
+Niter=10 ; Init=11  
+# Appel de la fonction définie plus haut
+pred.ozone=pred.autom(X,Y,methodes=models,N=Niter,xinit=Init,size=noptim,type="prob")
+```
+
+
+```{r}
+# Calcul des taux de bien classés
+obs=pred.ozone$obs
+prev.ozone=pred.ozone$pred
+res.ozone=lapply(prev.ozone,function(x)apply((x>0.5)==(obs==1),2,mean))
+# Moyennes des taux de bien classés par méthode
+lapply(res.ozone,mean)
+# distributions des taux de bien classés
+D<-data.frame(pred.ozone$svmm)
+colnames(D)<-c("glmStepAIC","rpart","glm","svmLinear2","nnet","rf","svmRadialCost")
+boxplot(D)
+```
+
+```{r}
+## Comparaison des méthodes par le
+# tracer des courbes ROC moyennes (sauf pour les SVM)
+# Problème pas identifié avec rlogit!
+predroc.ozone=lapply(prev.ozone,function(x)prediction(x,obs==1))
+perfroc.ozone=lapply(predroc.ozone,function(x)performance(x,"tpr","fpr"))
+plot(perfroc.ozone$glmStepAIC,col=1,lwd=2,avg="vertical")
+plot(perfroc.ozone$rpart,col=2,add=TRUE,lwd=2,avg="vertical")
+plot(perfroc.ozone$glm,add=TRUE,col=3,lwd=1.5,avg="vertical")
+plot(perfroc.ozone$nnet,add=TRUE,col=4,lwd=1.5,avg="vertical")
+plot(perfroc.ozone$rf,add=TRUE,col=5,lwd=1.5,avg="vertical")
+
+legend("bottomright",legend=c("glmStepAIC","rpart", "glm","nnet","rf"),col=c(1:5),pch="_")
+```
+
+VII- Comparaison des methodes (SANS CARET)
+
+```{r}
+#Extraction des échantillons
+
+set.seed(25) # initialisation du générateur
+# Extraction des échantillons
+test.ratio=.2   # part de l'échantillon test
+npop=nrow(DATA3) # nombre de lignes dans les données
+nvar=ncol(DATA3) # nombre de colonnes
+# taille de l'échantillon test
+ntest=ceiling(npop*test.ratio) 
+# indices de l'échantillon test
+testi=sample(1:npop,ntest)
+# indices de l'échantillon d'apprentissage
+appri=setdiff(1:npop,testi) 
+```
+```{r}
+# construction de l'échantillon d'apprentissage
+datappq=DATA3[appri,]#-18 est le nombre de colonnes
+# construction de l'échantillon test
+datestq=DATA3[testi,] 
+summary(datappq) # vérification
+```
+  
+  VII-1- SVM Lineaire
+```{r}
+# optimisation
+plot(tune.svm(Pathologie~.,data=datappq,cost=c(1,1.25,1.5,1.75,2))) 
+# apprentissage
+svm.dis=svm(Pathologie~.,data=datappq,cost=1.25) 
+# prediction
+pred.svmq=predict(svm.dis,newdata=datestq)
+#mat confusion
+table(pred.svmq,datestq[,"Pathologie"])
+```
+
+```{r}
+#SVM lineaire
+svm.dis=svm(Pathologie~.,data=datappq,kernel="linear",cost=1,
+  probability=TRUE)
+summary(svm.dis)
+pred.svmq=predict(svm.dis,newdata=datestq,
+  probability=TRUE)
+rocsvmq=attributes(pred.svmq)$probabilities[,1]
+predsvmq=prediction(rocsvmq,datestq$Pathologie)
+perfsvmq=performance(predsvmq,"tpr","fpr")
+# tracer les courbes ROC SVM Linéaire
+
+plot(perfsvmq)  
+```
+  VII-SVM Radiale
+```{r}
+#SVM radiale
+svm.disr=svm(Pathologie~.,data=datappq,kernel="radial",cost=0.5,
+  probability=TRUE)
+summary(svm.disr)
+pred.svmqr=predict(svm.disr,newdata=datestq,
+  probability=TRUE)
+rocsvmqr=attributes(pred.svmqr)$probabilities[,1]
+predsvmqr=prediction(rocsvmqr,datestq$Pathologie)
+perfsvmqr=performance(predsvmqr,"tpr","fpr")
+# tracer les courbes ROC SVMR
+plot(perfsvmqr,col=3)  
+
+```
+  VII-Regression logistique
+```{r}
+# régression avec le modèle minimum
+log.qm=glm(Pathologie ~.,data=datappq,family=binomial)
+# algorithme stepwise en précisant le plus grand 
+# modèle possible
+log.qm.step1=step(log.qm,direction="both",
+  scope=list(lower=~1,upper=~(Sexe + Age + 
+  Durées + Amplitude + `F0 moyen (Hertz)`+`Intonation (Demi-ton)`+Indicateurs+Attaque+`Inst haut`+`Inst ampl`+Bruit+Hamon+`Deg.unv (en%)`+`Inst haut (1s)`+`Inst ampl (1s)`+`Bruit (1s)`+`F0 harm (1s)`)^2), family=binomial)
+
+
+```
+
+```{r}
+#reg log model complet 
+roclogit=predict(log.qm,newdata=datestq,type="response")
+predlogit=prediction(roclogit,datestq[,"Pathologie"])
+perflogit=performance(predlogit, "tpr","fpr")
+# Tracé de la courbe modele complet
+plot(perflogit,col=4)
+```
+
+```{r}
+#reg log model stepAIC
+roclogits=predict(log.qm.step1,newdata=datestq,type="response")
+predlogits=prediction(roclogits,datestq[,"Pathologie"])
+perflogits=performance(predlogits, "tpr","fpr")
+# Tracé de la courbe modele stepAIC
+plot(perflogits,col=5)
+
+```
+  VII- Arbe de décision
+```{r}
+#install.packages("rpart")
+library(rpart)
+tree.dis=rpart(Pathologie~.,data=datappq,parms=list(split="information"),cp=0.69)
+pred.treeq=predict(tree.dis,newdata=datestq,type="class")
+ROCdistree=predict(tree.dis,newdata=datestq,type="prob")[,2]
+preddistree=prediction(ROCdistree,datestq$Pathologie)
+perfdistree=performance(preddistree,"tpr","fpr")
+plot(perfdistree, col=6)
+```
+  VII- Reseau de neurones
+```{r}
+library(MASS)
+library(nnet)
+
+nnet.dis=nnet(Pathologie~.,data=datappq,size=25,decay=0, maxit=500) 
+pred.nnetq=predict(nnet.dis,newdata=datestq) 
+rocnnetq=pred.nnetq
+prednnetq=prediction(rocnnetq,datestq$Pathologie)
+perfnnetq=performance(prednnetq,"tpr","fpr")
+plot(perfnnetq, col=7)
+```
+  VII-Random Forest 
+```{r}
+datappq
+library(randomForest)
+xapp=datappq[,-1]
+xapp
+yapp=datappq[,1]
+xtest=datestq[,-1]
+ytest=datestq[,1]
+rf.dis=randomForest(x=xapp, y=yapp, xtest=xtest, ytest=ytest, mtry=2, do.trace=50, importance = TRUE)
+sort(rf.dis$importance[,3],decreasing=TRUE)
+
+rocfr=rf.dis$test$vote[,2]
+pred.rf=prediction(rocfr,datestq[,1])
+perf.rf=performance(pred.rf,"tpr","fpr")
+plot(perf.rf,col=7)
+```
+
+  VII-Comparaison des modèle sur un test 
+```{r}
+#Comparaison des courbes ROC
+plot(perfsvmq,col=1)
+plot(perfsvmqr,col=2,add=TRUE)  
+plot(perflogit,col=3,add=TRUE)
+plot(perflogits,col=4,add=TRUE)
+plot(perfdistree, col=5,add=TRUE)
+plot(perfnnetq,col=6,add=TRUE)
+plot(perf.rf,col=7,add=TRUE)
+abline(0,1,add=TRUE)
+legend("bottomright",legend=c("SVM Lin","SVM Rad", "glm","glmStepAIC","Dec Tree","Neural net","Rand Forest"),col=c(1:7),pch="_")
+```
+
